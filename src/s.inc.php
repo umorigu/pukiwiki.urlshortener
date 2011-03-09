@@ -134,7 +134,7 @@ function plugin_s_action()
 	
 	if (!defined('PKWK_UTF8_ENABLE'))
 	{
-		$str2 = mb_convert_encoding(mb_convert_encodfing($str2, 'SJIS-win', 'UTF-8'), 'EUC-JP', 'SJIS-win');
+		$str2 = mb_convert_encoding(mb_convert_encoding($str2, 'SJIS-win', 'UTF-8'), 'EUC-JP', 'SJIS-win');
 	}
 	$url = get_script_uri() . '?' . rawurlencode($str2);
 	header("HTTP/1.1 302 Moved Permanently");
