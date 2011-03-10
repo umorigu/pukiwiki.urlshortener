@@ -22,6 +22,10 @@ define('PLUGIN_S_PAGENAME_MININUM_LENGTH', 20);
 function plugin_s_convert_get_short_link()
 {
 	$shorturl = plugin_s_inline_get_short_url();
+	if ($shorturl === '')
+	{
+		return '';
+	}
 	$s = htmlspecialchars($shorturl);
 	$jsblock = <<<JS_BLOCK_END
 <script type="text/javascript">
