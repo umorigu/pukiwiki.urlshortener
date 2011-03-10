@@ -65,20 +65,19 @@ function plugin_s_inline_get_short_url()
 {
 	global $vars;
 	
-	$page = $vars['page'];
+	$utf8page = $page = $vars['page'];
 	$encoded = encode($page);
 	if (! defined('PKWK_UTF8_ENABLE'))
 	{
 		$utf8page = mb_convert_encoding(mb_convert_encoding($page, 'SJIS-win', 'EUC-JP'), 'UTF-8', 'SJIS-win');
 		$encoded = encode($utf8page);
 	}
-	$md5 = md5($encoded);
-	$shortid = substr($md5, 0, PLUGIN_S_PAGEID_LENGTH);
-	$shorturl = get_script_uri() . '?' . PLUGIN_S_COMMAND_STR . $shortid;
-
 	if (is_page($page) &&
 		PLUGIN_S_PAGENAME_MININUM_LENGTH < strlen(rawurlencode($page)))
 	{
+		$md5 = md5($encoded);
+		$shortid = substr($md5, 0, PLUGIN_S_PAGEID_LENGTH);
+		$shorturl = get_script_uri() . '?' . PLUGIN_S_COMMAND_STR . $shortid;
 		$filename = PLUGIN_S_NAMES_DIR . '/' . $shortid . '.txt';
 		if (!file_exists($filename))
 		{
@@ -86,24 +85,13 @@ function plugin_s_inline_get_short_url()
 			set_file_buffer($fp, 0);
 			flock($fp, LOCK_EX);
 			rewind($fp);
-			if (defined('PKWK_UTF8_ENABLE'))
-			{
-				fputs($fp, $page);
-			}
-			else
-			{
-				$utf8page = mb_convert_encoding(mb_convert_encoding($page, 'SJIS-win', 'UEC-JP'), 'UTF-8', 'SJIS-win');
-				fputs($fp, $utf8page);
-			}
+			fputs($fp, $utf8page);
 			flock($fp, LOCK_UN);
 			fclose($fp);
 		}
 		return $shorturl;
 	}
-	else
-	{
-		return '';
-	}
+	return '';
 }
 
 // Action-type plugin: ?plugin=s&k=key
