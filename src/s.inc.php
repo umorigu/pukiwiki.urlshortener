@@ -106,7 +106,7 @@ function plugin_s_inline_get_short_url()
 	}
 }
 
-// Action-type plugin: ?plugin=s&p=key
+// Action-type plugin: ?plugin=s&k=key
 function plugin_s_action()
 {
 	global $vars;
