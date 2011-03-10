@@ -57,7 +57,7 @@ if (window.addEventListener) {
 JS_BLOCK_END;
 	$retval = '<a href="' . $s . '">' . $s . '</a>'
 	 . '<span id="__plugin_s_hash_span"></span>' . "\n"
-	 . $jsblock . "\n<br />";
+	 . $jsblock;
 	return $retval;
 }
 
