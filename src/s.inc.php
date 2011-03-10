@@ -64,17 +64,16 @@ JS_BLOCK_END;
 function plugin_s_inline_get_short_url()
 {
 	global $vars;
-	
-	$utf8page = $page = $vars['page'];
-	$encoded = encode($page);
-	if (! defined('PKWK_UTF8_ENABLE'))
-	{
-		$utf8page = mb_convert_encoding(mb_convert_encoding($page, 'SJIS-win', 'EUC-JP'), 'UTF-8', 'SJIS-win');
-		$encoded = encode($utf8page);
-	}
+	$page = $vars['page'];
 	if (is_page($page) &&
 		PLUGIN_S_PAGENAME_MININUM_LENGTH < strlen(rawurlencode($page)))
 	{
+		$utf8page = $page; 
+		if (! defined('PKWK_UTF8_ENABLE'))
+		{
+			$utf8page = mb_convert_encoding(mb_convert_encoding($page, 'SJIS-win', 'EUC-JP'), 'UTF-8', 'SJIS-win');
+		}
+		$encoded = encode($utf8page);
 		$md5 = md5($encoded);
 		$shortid = substr($md5, 0, PLUGIN_S_PAGEID_LENGTH);
 		$shorturl = get_script_uri() . '?' . PLUGIN_S_COMMAND_STR . $shortid;
