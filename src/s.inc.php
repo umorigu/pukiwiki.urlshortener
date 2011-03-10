@@ -17,7 +17,7 @@ define('PLUGIN_S_PAGEID_LENGTH', 10);
 define('PLUGIN_S_COMMAND_STR', 'cmd=s&k=');
 
 // page name minimum length   
-define('PLUGIN_S_PAGENAME_MININUM_LENGTH', 33);
+define('PLUGIN_S_PAGENAME_MININUM_LENGTH', 20);
 
 function plugin_s_convert_get_short_link()
 {
