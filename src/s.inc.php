@@ -68,10 +68,10 @@ function plugin_s_inline_get_short_url()
 	if (is_page($page) &&
 		PLUGIN_S_PAGENAME_MININUM_LENGTH < strlen(rawurlencode($page)))
 	{
-		$utf8page = $page; 
+		$utf8page = $page;
 		if (! defined('PKWK_UTF8_ENABLE'))
 		{
-			$utf8page = mb_convert_encoding(mb_convert_encoding($page, 'SJIS-win', 'EUC-JP'), 'UTF-8', 'SJIS-win');
+			$utf8page = mb_convert_encoding($page, 'UTF-8', 'CP51932');
 		}
 		$encoded = encode($utf8page);
 		$md5 = md5($encoded);
@@ -125,11 +125,10 @@ function plugin_s_action()
 	
 	if (!defined('PKWK_UTF8_ENABLE'))
 	{
-		$str2 = mb_convert_encoding(mb_convert_encoding($str2, 'SJIS-win', 'UTF-8'), 'EUC-JP', 'SJIS-win');
+		$str2 = mb_convert_encoding($str2, 'CP51932', 'UTF-8');
 	}
 	$url = get_script_uri() . '?' . rawurlencode($str2);
 	header("HTTP/1.1 302 Moved Permanently");
 	header("Location: $url");
 	exit;
 }
-?>
