@@ -66,7 +66,7 @@ function plugin_s_inline_get_short_url()
 	global $vars;
 	$page = $vars['page'];
 	if (is_page($page) &&
-		PLUGIN_S_PAGENAME_MININUM_LENGTH < strlen(rawurlencode($page)))
+		PLUGIN_S_PAGENAME_MININUM_LENGTH < strlen(plugin_s_pagename_urlencode($page)))
 	{
 		$utf8page = $page;
 		if (! defined('PKWK_UTF8_ENABLE'))
@@ -98,9 +98,8 @@ function plugin_s_action()
 {
 	global $vars;
 	$pageid = isset($vars['k']) ? $vars['k'] : '';
-	
 	$filename = PLUGIN_S_NAMES_DIR . '/' . $pageid . '.txt';
-	$fp = fopen($filename, 'r') or die_message('Cannnot open ' . $filename);
+	$fp = fopen($filename, 'r') or die_message('Cannnot open ' . plugin_s_htmlsc($filename));
 	$str = fgets($fp);
 	$str2 = trim($str);
 	fclose($fp);
@@ -108,7 +107,7 @@ function plugin_s_action()
 	// increment counter
 	$cfilename = PLUGIN_S_NAMES_COUNTER_DIR . '/' . $pageid . '.count';
 	$fpc = fopen($cfilename, file_exists($cfilename) ? 'r+' : 'w+')
-		or die_message('Cannot open: ' . $cfilename);
+		or die_message('Cannot open: ' . plugin_s_htmlsc($cfilename));
 	set_file_buffer($fpc, 0);
 	flock($fpc, LOCK_EX);
 	$shorter_count = trim(fgets($fpc));
@@ -122,8 +121,44 @@ function plugin_s_action()
 	{
 		$str2 = mb_convert_encoding($str2, 'CP51932', 'UTF-8');
 	}
-	$url = get_script_uri() . '?' . rawurlencode($str2);
+	if (function_exists('get_page_uri') && defined('PKWK_URI_ROOT'))
+	{
+		$url = get_page_uri($str2, PKWK_URI_ROOT);
+	}
+	else
+	{
+		$url = get_script_uri() . '?' . plugin_s_pagename_urlencode($str2);
+	}
 	header("HTTP/1.1 302 Moved Permanently");
 	header("Location: $url");
 	exit;
+}
+
+/**
+ * Compatible htmlsc()
+ */
+function plugin_s_htmlsc($s)
+{
+	if (function_exists('htmlsc'))
+	{
+		return htmlsc($s);
+	}
+	return htmlspecialchars($s);
+}
+
+/**
+ * Compatible pagename_urlencode()
+ */
+function plugin_s_pagename_urlencode($page)
+{
+	static $simple_url = null;
+	if (is_null($simple_url))
+	{
+		$simple_url = function_exists('pagename_urlencode');
+	}
+	if ($simple_url)
+	{
+		return pagename_urlencode($page);
+	}
+	return rawurlencode($page);
 }
