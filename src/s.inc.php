@@ -97,11 +97,6 @@ function plugin_s_inline_get_short_url()
 function plugin_s_action()
 {
 	global $vars;
-	
-	// See above
-	if (PKWK_SAFE_MODE || PKWK_READONLY)
-		die_message('PKWK_SAFE_MODE or PKWK_READONLY prohibits this');
-
 	$pageid = isset($vars['k']) ? $vars['k'] : '';
 	
 	$filename = PLUGIN_S_NAMES_DIR . '/' . $pageid . '.txt';
