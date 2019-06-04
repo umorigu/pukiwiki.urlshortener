@@ -129,7 +129,7 @@ function plugin_s_action()
 	{
 		$url = get_script_uri() . '?' . plugin_s_pagename_urlencode($str2);
 	}
-	header("HTTP/1.1 302 Moved Permanently");
+	header("HTTP/1.1 302 Found");
 	header("Location: $url");
 	exit;
 }
