@@ -1,8 +1,9 @@
 <?php
 // s.inc.php
 //
+// Copyright 2011-2021 umorigu
 // URL Shortener plugin
-// License: The same as PukiWiki
+// License: GPLv2
 
 // key-name map directory
 define('PLUGIN_S_NAMES_DIR', 'shortener');
@@ -13,11 +14,14 @@ define('PLUGIN_S_NAMES_COUNTER_DIR', 'shortener_counter');
 // key string length
 define('PLUGIN_S_PAGEID_LENGTH', 10);
 
-// command string "/?${PLUGIN_S_COMMAND_STR}91aa88d26e";  
-define('PLUGIN_S_COMMAND_STR', 'cmd=s&k=');
+// virtual query prefix "/${PLUGIN_S_VIRTUAL_QUERY_PREFIX}91aa88d26e";
+define('PLUGIN_S_VIRTUAL_QUERY_PREFIX', '?cmd=s&k=');
 
 // page name minimum length   
 define('PLUGIN_S_PAGENAME_MININUM_LENGTH', 20);
+
+// use short url if original url contains percent chars
+define('PLUGIN_S_ALWAYS_SHORT_URL_ON_PERCENT', FALSE);
 
 function plugin_s_convert_get_short_link()
 {
@@ -65,71 +69,83 @@ function plugin_s_inline_get_short_url()
 {
 	global $vars;
 	$page = $vars['page'];
-	if (is_page($page) &&
-		PLUGIN_S_PAGENAME_MININUM_LENGTH < strlen(rawurlencode($page)))
-	{
-		$utf8page = $page; 
-		if (! defined('PKWK_UTF8_ENABLE'))
-		{
-			$utf8page = mb_convert_encoding(mb_convert_encoding($page, 'SJIS-win', 'EUC-JP'), 'UTF-8', 'SJIS-win');
-		}
+	$url = plugin_s_get_short_url_from_page($page);
+	return $url;
+}
+
+function plugin_s_get_short_url_from_page($page)
+{
+	if (! is_page($page)) {
+		return '';
+	}
+	$shortid = plugin_s_get_page_id($page);
+	if (!$shortid) {
+		return get_page_uri($page, PKWK_URI_ABSOLUTE);
+	}
+	$utf8page = $page;
+	if (! defined('PKWK_UTF8_ENABLE')) {
+		$utf8page = mb_convert_encoding($page, 'UTF-8', 'CP51932');
+	}
+	$filename = PLUGIN_S_NAMES_DIR . '/' . $shortid . '.txt';
+	if (!file_exists($filename)) {
+		$fp = fopen($filename, 'w') or die('fopen() failed: ' . htmlsc($filename));
+		set_file_buffer($fp, 0);
+		flock($fp, LOCK_EX);
+		rewind($fp);
+		fputs($fp, $utf8page);
+		flock($fp, LOCK_UN);
+		fclose($fp);
+	}
+	$shorturl = get_base_uri(PKWK_URI_ABSOLUTE)
+		. PLUGIN_S_VIRTUAL_QUERY_PREFIX . $shortid;
+	return $shorturl;
+}
+
+function plugin_s_get_page_id($page)
+{
+	$utf8page = $page;
+	if (! defined('PKWK_UTF8_ENABLE')) {
+		$utf8page = mb_convert_encoding($page, 'UTF-8', 'CP51932');
+	}
+	$page_encoded = pagename_urlencode($utf8page);
+	if (PLUGIN_S_PAGENAME_MININUM_LENGTH < strlen($page_encoded)
+		|| (PLUGIN_S_ALWAYS_SHORT_URL_ON_PERCENT && strpos($page_encoded, '%') >= 0)) {
 		$encoded = encode($utf8page);
 		$md5 = md5($encoded);
 		$shortid = substr($md5, 0, PLUGIN_S_PAGEID_LENGTH);
-		$shorturl = get_script_uri() . '?' . PLUGIN_S_COMMAND_STR . $shortid;
-		$filename = PLUGIN_S_NAMES_DIR . '/' . $shortid . '.txt';
-		if (!file_exists($filename))
-		{
-			$fp = fopen($filename, 'w') or die('fopen() failed: ' . $filename);
-			set_file_buffer($fp, 0);
-			flock($fp, LOCK_EX);
-			rewind($fp);
-			fputs($fp, $utf8page);
-			flock($fp, LOCK_UN);
-			fclose($fp);
-		}
-		return $shorturl;
+		return $shortid;
 	}
-	return '';
+	return null;
 }
 
 // Action-type plugin: ?plugin=s&k=key
 function plugin_s_action()
 {
 	global $vars;
-	
-	// See above
-	if (PKWK_SAFE_MODE || PKWK_READONLY)
-		die_message('PKWK_SAFE_MODE or PKWK_READONLY prohibits this');
-
 	$pageid = isset($vars['k']) ? $vars['k'] : '';
-	
 	$filename = PLUGIN_S_NAMES_DIR . '/' . $pageid . '.txt';
-	$fp = fopen($filename, 'r') or die_message('Cannnot open ' . $filename);
+	$fp = fopen($filename, 'r') or die_message('Cannnot open ' . htmlsc($filename));
 	$str = fgets($fp);
 	$str2 = trim($str);
 	fclose($fp);
-	
+
 	// increment counter
 	$cfilename = PLUGIN_S_NAMES_COUNTER_DIR . '/' . $pageid . '.count';
 	$fpc = fopen($cfilename, file_exists($cfilename) ? 'r+' : 'w+')
-		or die_message('Cannot open: ' . $cfilename);
+		or die_message('Cannot open: ' . htmlsc($cfilename));
 	set_file_buffer($fpc, 0);
 	flock($fpc, LOCK_EX);
-	$shorter_count = trim(fgets($fpc));
-	$shorter_count = intval($shorter_count) + 1;
+	$shorter_count = intval(trim(fgets($fpc))) + 1;
 	rewind($fpc);
 	fputs($fpc, $shorter_count);
 	flock($fpc, LOCK_UN);
 	fclose($fpc);
-	
-	if (!defined('PKWK_UTF8_ENABLE'))
-	{
-		$str2 = mb_convert_encoding(mb_convert_encoding($str2, 'SJIS-win', 'UTF-8'), 'EUC-JP', 'SJIS-win');
+
+	if (!defined('PKWK_UTF8_ENABLE')) {
+		$str2 = mb_convert_encoding($str2, 'CP51932', 'UTF-8');
 	}
-	$url = get_script_uri() . '?' . rawurlencode($str2);
-	header("HTTP/1.1 302 Moved Permanently");
+	$url = get_page_uri($str2, PKWK_URI_ROOT);
+	header("HTTP/1.1 302 Found");
 	header("Location: $url");
 	exit;
 }
-?>
