@@ -2,7 +2,7 @@
 // s.inc.php
 //
 // Copyright 2011-2021 umorigu
-// URL Shortener plugin
+// PukiWiki URL Shortener plugin
 // License: GPLv2
 
 // key-name map directory
@@ -21,16 +21,15 @@ define('PLUGIN_S_VIRTUAL_QUERY_PREFIX', '?cmd=s&k=');
 define('PLUGIN_S_PAGENAME_MININUM_LENGTH', 20);
 
 // use short url if original url contains percent chars
-define('PLUGIN_S_ALWAYS_SHORT_URL_ON_PERCENT', FALSE);
+define('PLUGIN_S_SHORT_URL_ON_PERCENT', FALSE);
 
 function plugin_s_convert_get_short_link()
 {
 	$shorturl = plugin_s_inline_get_short_url();
-	if ($shorturl === '')
-	{
+	if (! $shorturl) {
 		return '';
 	}
-	$s = htmlspecialchars($shorturl);
+	$s = htmlsc($shorturl);
 	$jsblock = <<<JS_BLOCK_END
 <script type="text/javascript">
 var __plugin_s_hash = '';
@@ -69,25 +68,65 @@ function plugin_s_inline_get_short_url()
 {
 	global $vars;
 	$page = $vars['page'];
-	$url = plugin_s_get_short_url_from_page($page);
-	return $url;
+	return plugin_s_get_short_url_from_page($page);
 }
 
+/**
+ * Get short absolute URL (with http(s):// scheme) for existing page.
+ *
+ * @return short or original url for existing page
+ * @return '' if the page doesn't exists
+ */
 function plugin_s_get_short_url_from_page($page)
 {
-	if (! is_page($page)) {
+	$page_id = plugin_s_get_page_id($page);
+	if ($page_id === FALSE) {
+		// $page doesn't exists
 		return '';
 	}
-	$shortid = plugin_s_get_page_id($page);
-	if (!$shortid) {
+	if (! $page_id) {
 		return get_page_uri($page, PKWK_URI_ABSOLUTE);
+	}
+	$shorturl = get_base_uri(PKWK_URI_ABSOLUTE)
+		. PLUGIN_S_VIRTUAL_QUERY_PREFIX . $page_id;
+	return $shorturl;
+}
+
+/**
+ * Get page_id of existing page.
+ *
+ * @param $page page name
+ * @param $is_create_mapping_file if true, create mapping file in shortener/
+ * @return FALSE: page doesn't exist
+ * @return null: page_id should not be created (page name is enouth short. etc.)
+ * @return page_id: 10 hex chars that indicate existing page
+ */
+function plugin_s_get_page_id($page)
+{
+	if (! is_page($page)) {
+		return FALSE;
 	}
 	$utf8page = $page;
 	if (! defined('PKWK_UTF8_ENABLE')) {
 		$utf8page = mb_convert_encoding($page, 'UTF-8', 'CP51932');
 	}
-	$filename = PLUGIN_S_NAMES_DIR . '/' . $shortid . '.txt';
-	if (!file_exists($filename)) {
+	$page_encoded = pagename_urlencode($utf8page);
+	if (strlen($page_encoded) <= PLUGIN_S_PAGENAME_MININUM_LENGTH) {
+		if (PLUGIN_S_SHORT_URL_ON_PERCENT) {
+			if (strpos($page_encoded, '%') === FALSE) {
+				return null;
+			}
+		} else {
+			return null;
+		}
+	}
+	$encoded = encode($utf8page);
+	$md5 = md5($encoded);
+	$page_id = substr($md5, 0, PLUGIN_S_PAGEID_LENGTH);
+
+	// Create pageId to pageName file in shortener/ dir
+	$filename = PLUGIN_S_NAMES_DIR . '/' . $page_id . '.txt';
+	if (! file_exists($filename)) {
 		$fp = fopen($filename, 'w') or die('fopen() failed: ' . htmlsc($filename));
 		set_file_buffer($fp, 0);
 		flock($fp, LOCK_EX);
@@ -96,41 +135,51 @@ function plugin_s_get_short_url_from_page($page)
 		flock($fp, LOCK_UN);
 		fclose($fp);
 	}
-	$shorturl = get_base_uri(PKWK_URI_ABSOLUTE)
-		. PLUGIN_S_VIRTUAL_QUERY_PREFIX . $shortid;
-	return $shorturl;
+	return $page_id;
 }
-
-function plugin_s_get_page_id($page)
-{
-	$utf8page = $page;
-	if (! defined('PKWK_UTF8_ENABLE')) {
-		$utf8page = mb_convert_encoding($page, 'UTF-8', 'CP51932');
-	}
-	$page_encoded = pagename_urlencode($utf8page);
-	if (PLUGIN_S_PAGENAME_MININUM_LENGTH < strlen($page_encoded)
-		|| (PLUGIN_S_ALWAYS_SHORT_URL_ON_PERCENT && strpos($page_encoded, '%') >= 0)) {
-		$encoded = encode($utf8page);
-		$md5 = md5($encoded);
-		$shortid = substr($md5, 0, PLUGIN_S_PAGEID_LENGTH);
-		return $shortid;
-	}
-	return null;
-}
-
-// Action-type plugin: ?plugin=s&k=key
+/**
+ * Action-type plugin: ?plugin=s&k={page_id}.
+ */
 function plugin_s_action()
 {
 	global $vars;
-	$pageid = isset($vars['k']) ? $vars['k'] : '';
-	$filename = PLUGIN_S_NAMES_DIR . '/' . $pageid . '.txt';
-	$fp = fopen($filename, 'r') or die_message('Cannnot open ' . htmlsc($filename));
-	$str = fgets($fp);
-	$str2 = trim($str);
+	$page_id = isset($vars['k']) ? $vars['k'] : '';
+	$page = plugin_s_get_page_from_page_id($page_id);
+	if (! $page) {
+		die_message("Invalid page id: " . htmlsc($page_id));
+		exit;
+	}
+	$url = get_page_uri($page, PKWK_URI_ROOT);
+	header("HTTP/1.1 302 Found");
+	header("Location: $url");
+	exit;
+}
+
+/**
+ * Get page name from page_id.
+ *
+ * @param $page_id page id - 1-32 hex chars
+ * @return page name
+ * @return FALSE if page_id is invalid or map file is not found
+ */
+function plugin_s_get_page_from_page_id($page_id)
+{
+	if (! preg_match('#^[a-f0-9]{10,32}$#', $page_id)) {
+		return FALSE;
+	}
+	$filename = PLUGIN_S_NAMES_DIR . '/' . $page_id . '.txt';
+	$fp = fopen($filename, 'r');
+	if (! $fp) {
+		return FALSE;
+	}
+	$page = trim(fgets($fp));
+	if (! defined('PKWK_UTF8_ENABLE')) {
+		$page = mb_convert_encoding($page, 'CP51932', 'UTF-8');
+	}
 	fclose($fp);
 
 	// increment counter
-	$cfilename = PLUGIN_S_NAMES_COUNTER_DIR . '/' . $pageid . '.count';
+	$cfilename = PLUGIN_S_NAMES_COUNTER_DIR . '/' . $page_id . '.count';
 	$fpc = fopen($cfilename, file_exists($cfilename) ? 'r+' : 'w+')
 		or die_message('Cannot open: ' . htmlsc($cfilename));
 	set_file_buffer($fpc, 0);
@@ -141,11 +190,5 @@ function plugin_s_action()
 	flock($fpc, LOCK_UN);
 	fclose($fpc);
 
-	if (!defined('PKWK_UTF8_ENABLE')) {
-		$str2 = mb_convert_encoding($str2, 'CP51932', 'UTF-8');
-	}
-	$url = get_page_uri($str2, PKWK_URI_ROOT);
-	header("HTTP/1.1 302 Found");
-	header("Location: $url");
-	exit;
+	return $page;
 }

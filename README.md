@@ -4,7 +4,7 @@ PukiWiki URL短縮プラグイン (s.inc.php) は短いURLによってページ�
 
 ## 使い方
 
-https://pukiwiki.osdn.jp/?Plugins/s.inc.php
+https://pukiwiki.osdn.jp/?UserPlugins/s.inc.php
 
 ## セットアップ
 
