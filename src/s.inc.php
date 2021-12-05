@@ -93,10 +93,9 @@ function plugin_s_get_short_url_from_page($page)
 }
 
 /**
- * Get page_id of existing page.
+ * Create and get page_id of existing page.
  *
  * @param $page page name
- * @param $is_create_mapping_file if true, create mapping file in shortener/
  * @return FALSE: page doesn't exist
  * @return null: page_id should not be created (page name is enouth short. etc.)
  * @return page_id: 10 hex chars that indicate existing page
@@ -116,6 +115,7 @@ function plugin_s_get_page_id($page)
 			if (strpos($page_encoded, '%') === FALSE) {
 				return null;
 			}
+			// page_id is available when original url contains '%'.
 		} else {
 			return null;
 		}
@@ -124,7 +124,7 @@ function plugin_s_get_page_id($page)
 	$md5 = md5($encoded);
 	$page_id = substr($md5, 0, PLUGIN_S_PAGEID_LENGTH);
 
-	// Create pageId to pageName file in shortener/ dir
+	// Create page_id to page_name map file in shortener/ dir
 	$filename = PLUGIN_S_NAMES_DIR . '/' . $page_id . '.txt';
 	if (! file_exists($filename)) {
 		$fp = fopen($filename, 'w') or die('fopen() failed: ' . htmlsc($filename));
